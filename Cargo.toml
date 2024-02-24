@@ -1,0 +1,12 @@
+[package]
+name = "mongodb-api-rs"
+authors = ["Jacob Latonis"]
+description = "A straightfoward API using MongoDB and Rocket.
+version = "0.1.0"
+edition = "2021"
+readme = "readme.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rocket = "0.5.0"
