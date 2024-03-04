@@ -10,4 +10,3 @@ pub struct Recipe {
     pub temperature: u32,
     pub bake_time: u32,
 }
-

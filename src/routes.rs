@@ -7,7 +7,6 @@ use mongodb::{
 };
 use rocket::{futures::TryStreamExt, serde::json::Json};
 use rocket_db_pools::Connection;
-use serde::Serialize;
 use serde_json::{Map, Value};
 
 #[get("/")]
