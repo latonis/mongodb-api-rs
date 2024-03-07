@@ -1,5 +1,6 @@
 use crate::db::MainDatabase;
 use crate::models::Recipe;
+use mongodb::bson::oid::ObjectId;
 use mongodb::{
     bson::doc,
     results::{InsertOneResult, UpdateResult},
@@ -31,7 +32,7 @@ pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<R
     let recipe = db
         .database("bread")
         .collection("recipes")
-        .find_one(doc! {"_id": id}, None)
+        .find_one(doc! {"_id": ObjectId::parse_str(id).unwrap()}, None)
         .await
         .expect("No recipe found for given identifier");
 
@@ -42,18 +43,20 @@ pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<R
     return None;
 }
 
-#[put("/recipes/<id>", data = "<data>", format = "json")]
+#[patch("/recipes/<id>", data = "<data>", format = "json")]
 pub async fn update_recipe(
     db: Connection<MainDatabase>,
     data: Json<Map<String, Value>>,
     id: &str,
 ) -> Json<UpdateResult> {
+    dbg!(mongodb::bson::to_document(&data.clone().into_inner()).unwrap());
+
     let res = db
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
-            doc! {"_id": id},
-            mongodb::bson::to_document(&data.into_inner()).unwrap(),
+            doc! {"_id": ObjectId::parse_str(id).unwrap()},
+            doc! {"$set": mongodb::bson::to_document(&data.into_inner()).unwrap()},
             None,
         )
         .await
@@ -67,7 +70,7 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> Json<Value
     if db
         .database("bread")
         .collection::<Recipe>("recipes")
-        .delete_one(doc! {"_id": id}, None)
+        .delete_one(doc! {"_id": ObjectId::parse_str(id).unwrap()}, None)
         .await
         .is_err()
     {
