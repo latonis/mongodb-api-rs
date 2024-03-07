@@ -7,23 +7,11 @@ use mongodb::{
 };
 use rocket::{futures::TryStreamExt, serde::json::Json};
 use rocket_db_pools::Connection;
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 #[get("/")]
-pub fn index() -> Json<Recipe> {
-    let item = Recipe {
-        id: None,
-        title: "Sourdough".to_string(),
-        ingredients: vec![
-            "yeast".to_string(),
-            "water".to_string(),
-            "flour".to_string(),
-            "salt".to_string(),
-        ],
-        temperature: 475,
-        bake_time: 45,
-    };
-    Json(item)
+pub fn index() -> Json<Value> {
+    Json(json!({"status": "It is time to make some bread!!!"}))
 }
 
 #[get("/recipes", format = "json")]
@@ -39,7 +27,7 @@ pub async fn get_recipes(db: Connection<MainDatabase>) -> Json<Vec<Recipe>> {
 }
 
 #[get("/recipes/<id>", format = "json")]
-pub async fn get_recipe(db: Connection<MainDatabase>, id: String) -> Option<Json<Recipe>> {
+pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<Recipe>> {
     let recipe = db
         .database("bread")
         .collection("recipes")
@@ -58,7 +46,7 @@ pub async fn get_recipe(db: Connection<MainDatabase>, id: String) -> Option<Json
 pub async fn update_recipe(
     db: Connection<MainDatabase>,
     data: Json<Map<String, Value>>,
-    id: String,
+    id: &str,
 ) -> Json<UpdateResult> {
     let res = db
         .database("bread")
@@ -72,6 +60,21 @@ pub async fn update_recipe(
         .unwrap();
 
     Json(res)
+}
+
+#[delete("/recipes/<id>")]
+pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> Json<Value> {
+    if db
+        .database("bread")
+        .collection::<Recipe>("recipes")
+        .delete_one(doc! {"_id": id}, None)
+        .await
+        .is_err()
+    {
+        return Json(json!({ "status": "Recipe could not be deleted" }));
+    };
+
+    Json(json!({ "status": "Recipe successfully deleted" }))
 }
 
 #[post("/recipes", data = "<data>", format = "json")]

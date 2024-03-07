@@ -15,7 +15,8 @@ fn rocket() -> _ {
             routes::index,
             routes::get_recipes,
             routes::create_recipe,
-            routes::get_recipe
+            routes::get_recipe,
+            routes::delete_recipe,
         ],
     )
 }
