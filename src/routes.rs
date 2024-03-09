@@ -59,7 +59,7 @@ pub async fn update_recipe(
 ) -> Option<Json<UpdateResult>> {
     dbg!(mongodb::bson::to_document(&data.clone().into_inner()).unwrap());
 
-    if let Ok(res) = db
+    let res = match db
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
@@ -67,12 +67,12 @@ pub async fn update_recipe(
             doc! {"$set": mongodb::bson::to_document(&data.into_inner()).unwrap()},
             None,
         )
-        .await
-    {
-        return Some(Json(res));
-    }
-
-    None
+        .await {
+            Ok(res) => Some(Json(res)),
+            _ => None
+        };
+    
+    res
 }
 
 #[delete("/recipes/<id>")]
