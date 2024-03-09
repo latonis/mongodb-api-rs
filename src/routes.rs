@@ -4,7 +4,6 @@ use mongodb::bson::oid::ObjectId;
 use mongodb::{
     bson::doc,
     results::{InsertOneResult, UpdateResult},
-    Cursor,
 };
 use rocket::{futures::TryStreamExt, serde::json::Json};
 use rocket_db_pools::Connection;
@@ -17,30 +16,39 @@ pub fn index() -> Json<Value> {
 
 #[get("/recipes", format = "json")]
 pub async fn get_recipes(db: Connection<MainDatabase>) -> Json<Vec<Recipe>> {
-    let recipes: Cursor<Recipe> = db
+    let recipes = db
         .database("bread")
         .collection("recipes")
         .find(None, None)
-        .await
-        .expect("Failed to retrieve recipes");
+        .await;
 
-    Json(recipes.try_collect().await.unwrap())
+    if let Ok(r) = recipes {
+        if let Ok(collected) = r.try_collect::<Vec<Recipe>>().await {
+            return Json(collected);
+        }
+    }
+
+    return Json(vec![]);
 }
 
 #[get("/recipes/<id>", format = "json")]
 pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<Recipe>> {
-    let recipe = db
-        .database("bread")
-        .collection("recipes")
-        .find_one(doc! {"_id": ObjectId::parse_str(id).unwrap()}, None)
-        .await
-        .expect("No recipe found for given identifier");
+    let b_id = ObjectId::parse_str(id);
 
-    if let Some(r) = recipe {
-        return Some(Json(r));
+    if b_id.is_err() {
+        return None;
     }
 
-    return None;
+    if let Ok(Some(recipe)) = db
+        .database("bread")
+        .collection("recipes")
+        .find_one(doc! {"_id": b_id.unwrap()}, None)
+        .await
+    {
+        return Some(Json(recipe));
+    }
+
+    None
 }
 
 #[patch("/recipes/<id>", data = "<data>", format = "json")]
@@ -48,10 +56,10 @@ pub async fn update_recipe(
     db: Connection<MainDatabase>,
     data: Json<Map<String, Value>>,
     id: &str,
-) -> Json<UpdateResult> {
+) -> Option<Json<UpdateResult>> {
     dbg!(mongodb::bson::to_document(&data.clone().into_inner()).unwrap());
 
-    let res = db
+    if let Ok(res) = db
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
@@ -60,9 +68,11 @@ pub async fn update_recipe(
             None,
         )
         .await
-        .unwrap();
+    {
+        return Some(Json(res));
+    }
 
-    Json(res)
+    None
 }
 
 #[delete("/recipes/<id>")]
@@ -84,13 +94,15 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> Json<Value
 pub async fn create_recipe(
     db: Connection<MainDatabase>,
     data: Json<Recipe>,
-) -> Json<InsertOneResult> {
-    let res = db
+) -> Option<Json<InsertOneResult>> {
+    if let Ok(res) = db
         .database("bread")
         .collection::<Recipe>("recipes")
         .insert_one(data.into_inner(), None)
         .await
-        .expect("Error inserting recipe!");
+    {
+        return Some(Json(res));
+    }
 
-    Json(res)
+    None
 }
