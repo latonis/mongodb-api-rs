@@ -12,6 +12,6 @@ This API covers the basics of a CRUD API:
 - PATCH requests
 - DELETE requests
 
-## Side Note
+## Side Note (disclaimer)
 
 🥐 The recipes under [`bread_data.json`](bread_data.json) are not real recipes, please do not try to cook them. I wrote a python script to randomly generate with 1 to 4 ingredients and random uint32 values for temperature and cook time. 🥖

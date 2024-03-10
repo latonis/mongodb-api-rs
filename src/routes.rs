@@ -5,7 +5,7 @@ use mongodb::{
     bson::doc,
     results::{InsertOneResult, UpdateResult},
 };
-use rocket::{futures::TryStreamExt, serde::json::Json};
+use rocket::{futures::TryStreamExt, serde::json::Json, response::status, http::Status};
 use rocket_db_pools::Connection;
 use serde_json::{json, Map, Value};
 
@@ -57,13 +57,17 @@ pub async fn update_recipe(
     data: Json<Map<String, Value>>,
     id: &str,
 ) -> Option<Json<UpdateResult>> {
-    dbg!(mongodb::bson::to_document(&data.clone().into_inner()).unwrap());
+    let b_id = ObjectId::parse_str(id);
 
+    if b_id.is_err() {
+        return None;
+    }
+ 
     let res = match db
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
-            doc! {"_id": ObjectId::parse_str(id).unwrap()},
+            doc! {"_id": b_id.unwrap()},
             doc! {"$set": mongodb::bson::to_document(&data.into_inner()).unwrap()},
             None,
         )
@@ -76,18 +80,24 @@ pub async fn update_recipe(
 }
 
 #[delete("/recipes/<id>")]
-pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> Json<Value> {
+pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> status::Custom<Json<Value>>{
+    let b_id = ObjectId::parse_str(id);
+
+    if b_id.is_err() {
+        return status::Custom(Status::NotFound, Json(json!({"message":"Recipe not found"})));
+    }
+    
     if db
         .database("bread")
         .collection::<Recipe>("recipes")
-        .delete_one(doc! {"_id": ObjectId::parse_str(id).unwrap()}, None)
+        .delete_one(doc! {"_id": b_id.unwrap()}, None)
         .await
         .is_err()
     {
-        return Json(json!({ "status": "Recipe could not be deleted" }));
+        return status::Custom(Status::BadRequest, Json(json!({"message":"Recipe could not be deleted"})));
     };
 
-    Json(json!({ "status": "Recipe successfully deleted" }))
+    status::Custom(Status::Accepted, Json(json!({"message":"Recipe successfully deleted"})))
 }
 
 #[post("/recipes", data = "<data>", format = "json")]
