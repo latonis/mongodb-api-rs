@@ -1,10 +1,7 @@
 use crate::db::MainDatabase;
 use crate::models::Recipe;
 use mongodb::bson::oid::ObjectId;
-use mongodb::{
-    bson::doc,
-    results::{InsertOneResult, UpdateResult},
-};
+use mongodb::{bson::doc, results::InsertOneResult};
 use rocket::{futures::TryStreamExt, http::Status, response::status, serde::json::Json};
 use rocket_db_pools::Connection;
 use serde_json::{json, Map, Value};
@@ -51,12 +48,12 @@ pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<R
     None
 }
 
-#[patch("/recipes/<id>", data = "<data>", format = "json")]
+#[put("/recipes/<id>", data = "<data>", format = "json")]
 pub async fn update_recipe(
     db: Connection<MainDatabase>,
     data: Json<Map<String, Value>>,
     id: &str,
-) -> Option<Json<UpdateResult>> {
+) -> Option<Json<Value>> {
     let b_id = ObjectId::parse_str(id);
 
     if b_id.is_err() {
@@ -67,13 +64,15 @@ pub async fn update_recipe(
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
-            doc! {"_id": b_id.unwrap()},
+            doc! {"_id": b_id.as_ref().unwrap()},
             doc! {"$set": mongodb::bson::to_document(&data.into_inner()).unwrap()},
             None,
         )
         .await
     {
-        Ok(res) => Some(Json(res)),
+        Ok(_) => Some(Json(
+            json!({"status": "success", "message": format!("Recipe ({}) updated successfully", b_id.unwrap())}),
+        )),
         _ => None,
     };
 
@@ -94,19 +93,19 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> status::Cu
     if db
         .database("bread")
         .collection::<Recipe>("recipes")
-        .delete_one(doc! {"_id": b_id.unwrap()}, None)
+        .delete_one(doc! {"_id": b_id.as_ref().unwrap()}, None)
         .await
         .is_err()
     {
         return status::Custom(
             Status::BadRequest,
-            Json(json!({"message":"Recipe could not be deleted"})),
+            Json(json!({"message":format!("Recipe ({}) could not be deleted", b_id.unwrap())})),
         );
     };
 
     status::Custom(
         Status::Accepted,
-        Json(json!({"message":"Recipe successfully deleted"})),
+        Json(json!({"message": format!("Recipe ({}) successfully deleted", b_id.unwrap())})),
     )
 }
 

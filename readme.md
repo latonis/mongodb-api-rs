@@ -9,7 +9,7 @@ This API covers the basics of a CRUD API:
 - MongoDB database connections and pools
 - GET requests
 - POST requests
-- PATCH requests
+- PUT requests
 - DELETE requests
 
 ## Side Note (disclaimer)
