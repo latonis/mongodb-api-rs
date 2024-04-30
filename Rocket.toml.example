@@ -1,2 +1,4 @@
+# rename this file to Rocket.toml and add credentials
+
 [default.databases.db]
 url = "<mongodb_connection_string>"
