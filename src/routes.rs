@@ -1,7 +1,7 @@
 use crate::db::MainDatabase;
 use crate::models::Recipe;
+use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
-use mongodb::{bson::doc, results::InsertOneResult};
 use rocket::{futures::TryStreamExt, http::Status, response::status, serde::json::Json};
 use rocket_db_pools::Connection;
 use serde_json::{json, Map, Value};
@@ -29,23 +29,32 @@ pub async fn get_recipes(db: Connection<MainDatabase>) -> Json<Vec<Recipe>> {
 }
 
 #[get("/recipes/<id>", format = "json")]
-pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> Option<Json<Recipe>> {
+pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> status::Custom<Json<Value>> {
     let b_id = ObjectId::parse_str(id);
 
     if b_id.is_err() {
-        return None;
+        return status::Custom(
+            Status::BadRequest,
+            Json(json!({"status": "error", "message":"Recipe ID is invalid"})),
+        );
     }
 
     if let Ok(Some(recipe)) = db
         .database("bread")
-        .collection("recipes")
+        .collection::<Recipe>("recipes")
         .find_one(doc! {"_id": b_id.unwrap()}, None)
         .await
     {
-        return Some(Json(recipe));
+        return status::Custom(
+            Status::Ok,
+            Json(json!({"status": "success", "data": recipe})),
+        );
     }
 
-    None
+    return status::Custom(
+        Status::NotFound,
+        Json(json!({"status": "success", "message": "Recipe not found"})),
+    );
 }
 
 #[put("/recipes/<id>", data = "<data>", format = "json")]
@@ -53,14 +62,17 @@ pub async fn update_recipe(
     db: Connection<MainDatabase>,
     data: Json<Map<String, Value>>,
     id: &str,
-) -> Option<Json<Value>> {
+) -> status::Custom<Json<Value>> {
     let b_id = ObjectId::parse_str(id);
 
     if b_id.is_err() {
-        return None;
+        return status::Custom(
+            Status::BadRequest,
+            Json(json!({"status": "error", "message":"Recipe ID is invalid"})),
+        );
     }
 
-    let res = match db
+    if let Ok(_) = db
         .database("bread")
         .collection::<Recipe>("recipes")
         .update_one(
@@ -70,13 +82,20 @@ pub async fn update_recipe(
         )
         .await
     {
-        Ok(_) => Some(Json(
-            json!({"status": "success", "message": format!("Recipe ({}) updated successfully", b_id.unwrap())}),
-        )),
-        _ => None,
+        return status::Custom(
+            Status::Created,
+            Json(
+                json!({"status": "success", "message": format!("Recipe ({}) updated successfully", b_id.unwrap())}),
+            ),
+        );
     };
 
-    res
+    status::Custom(
+        Status::BadRequest,
+        Json(
+            json!({"status": "success", "message": format!("Recipe ({}) could not be updated successfully", b_id.unwrap())}),
+        ),
+    )
 }
 
 #[delete("/recipes/<id>")]
@@ -85,8 +104,8 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> status::Cu
 
     if b_id.is_err() {
         return status::Custom(
-            Status::NotFound,
-            Json(json!({"message":"Recipe not found"})),
+            Status::BadRequest,
+            Json(json!({"status": "error", "message":"Recipe ID is invalid"})),
         );
     }
 
@@ -99,13 +118,17 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> status::Cu
     {
         return status::Custom(
             Status::BadRequest,
-            Json(json!({"message":format!("Recipe ({}) could not be deleted", b_id.unwrap())})),
+            Json(
+                json!({"status": "error", "message":format!("Recipe ({}) could not be deleted", b_id.unwrap())}),
+            ),
         );
     };
 
     status::Custom(
         Status::Accepted,
-        Json(json!({"message": format!("Recipe ({}) successfully deleted", b_id.unwrap())})),
+        Json(
+            json!({"status": "", "message": format!("Recipe ({}) successfully deleted", b_id.unwrap())}),
+        ),
     )
 }
 
@@ -113,15 +136,25 @@ pub async fn delete_recipe(db: Connection<MainDatabase>, id: &str) -> status::Cu
 pub async fn create_recipe(
     db: Connection<MainDatabase>,
     data: Json<Recipe>,
-) -> Option<Json<InsertOneResult>> {
+) -> status::Custom<Json<Value>> {
     if let Ok(res) = db
         .database("bread")
         .collection::<Recipe>("recipes")
         .insert_one(data.into_inner(), None)
         .await
     {
-        return Some(Json(res));
+        if let Some(id) = res.inserted_id.as_object_id() {
+            return status::Custom(
+                Status::Created,
+                Json(
+                    json!({"status": "success", "message": format!("Recipe ({}) created successfully", id.to_string())}),
+                ),
+            );
+        }
     }
 
-    None
+    status::Custom(
+        Status::BadRequest,
+        Json(json!({"status": "error", "message":"Recipe could not be created"})),
+    )
 }
