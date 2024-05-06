@@ -1,10 +1,8 @@
-#[macro_use]
-extern crate rocket;
-
 mod db;
 mod models;
 mod routes;
 
+use rocket::{launch, routes};
 use rocket_db_pools::Database;
 
 #[launch]

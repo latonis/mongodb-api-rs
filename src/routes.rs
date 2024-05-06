@@ -2,9 +2,12 @@ use crate::db::MainDatabase;
 use crate::models::Recipe;
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
-use rocket::{futures::TryStreamExt, http::Status, response::status, serde::json::Json};
+use rocket::{
+    delete, futures::TryStreamExt, get, http::Status, post, put, response::status,
+    serde::json::Json,
+};
 use rocket_db_pools::Connection;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 #[get("/")]
 pub fn index() -> Json<Value> {
@@ -60,7 +63,7 @@ pub async fn get_recipe(db: Connection<MainDatabase>, id: &str) -> status::Custo
 #[put("/recipes/<id>", data = "<data>", format = "json")]
 pub async fn update_recipe(
     db: Connection<MainDatabase>,
-    data: Json<Map<String, Value>>,
+    data: Json<Recipe>,
     id: &str,
 ) -> status::Custom<Json<Value>> {
     let b_id = ObjectId::parse_str(id);
