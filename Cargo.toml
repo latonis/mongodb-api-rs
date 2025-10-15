@@ -7,7 +7,7 @@ edition = "2021"
 readme = "readme.md"
 
 [dependencies]
-mongodb = "2.8.1"
+mongodb = "3.2.5"
 rocket = { version = "0.5.0", features = ["json"] }
 rocket_db_pools = { version = "0.1.0", features = ["mongodb"] }
 serde_json = "1.0.114"
